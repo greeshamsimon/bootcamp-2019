@@ -14,6 +14,7 @@ Load the `gapminder` dataset.
 
 
 ```{r LoadData}
+library(here)
 gapminder <- read.csv(here("data/gapminder5.csv"), 
                       stringsAsFactors=FALSE)
 ```
@@ -54,7 +55,7 @@ for(i in unique(gapminder$country)) {
     country_mean <- mean(gapminder$pop[gapminder$country==i])
     
     if (country_mean < mean_pop) {
-        cat("\nMean life expectancy for ",i," is ",mean(gapminder$lifeExp[gapminder$country==i]),".",)
+        cat("\nMean life expectancy for",i," is",mean(gapminder$lifeExp[gapminder$country == i]),".")
     }
 }
 
@@ -66,20 +67,108 @@ continents <- unique(gapminder$continent)
 for(i in continents){
     tmp <- mean(gapminder$lifeExp[gapminder$continent==i])
     if (tmp< lowLim) {
-        cat(sep="","Continent ", i," has a mean life expectancy below ", lowLim, )
+        cat(sep="","\nContinent ", i," has a mean life expectancy below ", lowLim,"." )
+    } else if (tmp > highLim){
+         cat(sep="","\nContinent ", i," has a mean life expectancy above ", highLim,"." )
+    } else {
+         cat(sep="","\nContinent ", i," has a mean life expectancy between ", lowLim," and ", highLim, "." )
     }
 }
 
 ```
 
+## ## Exercise: Write Functions
+
+Create a function that given a data frame will print the name of each column and the class of data it contains. Use the gapminder dataset. Hint: Use mode() or class() to get the class of the data in each column. Remember that names() or colnames() returns the name of the columns in a dataset.
+
+Create a function that given a vector will print the mean and the standard deviation of a vector, it will optionally also print the median. Hint: include an argument that takes a boolean (TRUE/FALSE) operator and then include an if statement.
 
 
-## Including Plots
+```{r WriteFunctions}
 
-You can also embed plots, for example:
+#first function prints name of each column and class
 
-```{r another chunk name}
-plot(pressure)
+colNamesClass<- function(df) {
+    cols <-names(df)
+    for (i in cols){
+        cat("\n",i,":",class(df[[i]]))
+    }
+}
+
+colNamesClass(gapminder)
+    
+#second function prints mean and standard deviation. It may print median if printMedian is set to True
+
+vectorBasicInfo <- function(x, printMedian=FALSE){
+    cat("Mean:",mean(x),"\nStandard Deviation:",sd(x))
+    if (printMedian){
+        cat("\nMedian:", median(x))
+    }
+}
+
+vectorBasicInfo(gapminder$lifeExp)
+vectorBasicInfo(gapminder$lifeExp, TRUE)
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## ## Exercise: Analyzing the Relationship
+
+Use what you???ve learned so far to answer the following questions using the gapminder dataset. Be sure to include some visualizations!
+
+1. What is the relationship between GDP per capita and life expectancy? Does this relationship change over time? (Hint: Use the natural log of both variables.)
+
+2. Does the relationship between GDP per capita and life expectacy vary by continent? Make sure you divide the Americas into North and South America.
+
+
+```{r Analyzing the Relationship}
+#Problem 1
+#look at initial plot
+plot(x=gapminder$gdpPercap,y=gapminder$lifeExp)
+
+#look at transformed plot (nat log)
+plot(x=log(gapminder$gdpPercap),y=log(gapminder$lifeExp))
+
+linModel<- lm(log(gapminder$lifeExp)~log(gapminder$gdpPercap))
+summary(linModel)
+plot(x=log(gapminder$gdpPercap),y=log(gapminder$lifeExp))
+abline(a=linModel$coefficients[1], b=linModel$coefficients[2])
+
+# the power model looks like a good fit between life expectancy and gdp per capita
+
+
+#Problem 2
+# identify the countries in the continent Americas
+unique(gapminder$country[gapminder$continent=="Americas"])
+
+#Create vector of North American countries
+nAmerica <- c("Canada", "Costa Rica","Cuba","Dominican Republic","El Salvador","Guatemala","Hait","Honduras","Jamaica", "Mexica", "Nicaragua", "Panama", "Trinidad and Tobago", "United States")
+
+
+#Create New Continent column in gapminder
+gapminder$NewCont <- gapminder$continent
+
+#Parses through each column and assigns N America to North American countries and South America to the other "Americas" countries
+for (i in 1:length(gapminder$NewCont)){
+    if(gapminder$NewCont[i] == "Americas"){
+        if(gapminder$country[i] %in% nAmerica){
+            gapminder$NewCont[i] <- "North America"
+        } else{
+            gapminder$NewCont[i] <- "South America"
+        }
+    }
+    
+}
+
+continents_new <- unique(gapminder$NewCon)
+gapminder$logLifeExp <- log(gapminder$lifeExp)
+gapminder$loggdpPerCap <- log(gapminder$gdpPercap)
+
+for (i in continents_new){
+    lm_ex <- lm(gapminder$logLifeExp[gapminder$NewCont==i]~ gapminder$loggdpPerCap[gapminder$NewCont==i])
+    
+    cat("\n", i, ": intercept=", lm_ex$coefficients[1],", slope=", lm_ex$coefficients[2])
+    
+}
+
+
+```
