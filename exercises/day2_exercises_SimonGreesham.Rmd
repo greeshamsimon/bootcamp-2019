@@ -1,0 +1,115 @@
+---
+title: "R Day 2 exercises"
+author: "Greeham Simon"
+date: "`r Sys.Date()`"
+output: html_document
+params:
+    answers: TRUE
+---
+
+```{r global_options, echo = FALSE, include = FALSE}
+answers<-params$answers
+
+knitr::opts_chunk$set(echo=answers, eval=answers,
+                      warning = FALSE, message = FALSE,
+                      cache = FALSE, tidy = FALSE)
+```
+
+<!-- BEFORE YOU START, REMEMBER TO RENAME THE .RMD FILE AND SAVE IT AS day2_exercises_LastNameFirstName.Rmd AND THEN REMOVE THIS INSTRUCTION -->
+
+## Load the data
+
+Read both California energy datasets. Make sure the `datetime` variable is in an appropriate data type (i.e. not character). 
+
+```{r}
+library(dplyr)
+library(data.table)
+library(lubridate)
+library(readr)
+generation_dp <- read_csv(here::here("data/ca_energy_generation.csv"))
+imports_dp <- read_csv(here::here("data/ca_energy_imports.csv"))
+generation_dt <- as.data.table(generation_dp)
+imports_dt <- as.data.table(imports_dp)
+str(imports_dt)
+
+```
+
+
+## Merge and reshape the data
+
+Merge the two datasets and then melt the resulting dataframe/datatable to make it tidy.
+
+```{r}
+#inner join between data sets
+
+all_data <- melt(generation_dt[imports_dt, on = "datetime"], 
+                          id.vars = "datetime",
+                          variable.name = "source",
+                          value.name = "output")
+
+
+
+```
+
+
+## Creating new variables
+
+Create a series of new variables: 
+
+1. `day`, which is the year-month-day, without the hour. The `lubridate` function `as_date` will do this.
+2. `log_output`, which is the natural log of the output.
+3. **Challenge**: `per_output`, which is the percent of daily output represented by each observation. You will need to use `group_by` and to create a new variable with the total output for the day. (Make sure to use `ungroup()` after this!)
+
+Bonus: If you are using `dplyr`, try to do this all in one pipe!
+
+```{r}
+
+all_data[,day := as_date(datetime)]
+all_data[,log_output:= log(output)]
+all_data[,per_output:= output/sum(output, na.rm=T),by = day]
+
+```
+
+
+## Summarizing and analyzing data
+
+1. Which source has the greatest mean output by hour? (Hint: Use the `dplyr` verb `arrange(desc(variable))` to order the data frame so that the largest value of `variable` is first. Don't use `desc` and it arranges in ascending order. The `data.table` function is `setorder`.) Which has the least?
+2. Which source has the greatest mean output by day? Which has the least? (Do not include zero values.)
+3. Which sources has the greatest variance in usage over the course of a dataset? Which has the least? (Do not include zero values.)
+
+```{r}
+#1
+#stores mean of output by source in mean_hrly
+mean_hrly <- all_data[,.(mean_hourly = mean(output)), by = source]
+#displays max and mein mean hourly rate by source
+mean_hrly[mean_hourly == max(mean_hourly) | mean_hourly == min(mean_hourly)]
+
+#2
+#stores mean by day and source
+mean_daily <- all_data[output>0,.(mean_d = mean(output)), by = .(source,day)]
+#prints out the max and min
+mean_daily[mean_d == max(mean_d) | mean_d == min(mean_d)]
+
+#3
+#stores standard deviation of output by source
+sd_hrly <- all_data[output>0,.(sd_hourly = sd(output)), by = source]
+#displays max and mein sd  by source
+sd_hrly[sd_hourly == max(sd_hourly) | sd_hourly == min(sd_hourly)]
+```
+
+
+## Analyzing renewable versus non-renewable energy sources
+
+The dataset `regroup.csv` has information about which sources are considered renewable by the state of California. Use this dataset, along with yourdata manipulation skills, to explore the use of renewable and non-renewable sources. Annotate what your descisions for the analysis.
+
+Hint: Use your merge skills to merge the CA energy data with the `regroup` data. Which variable should you join by?
+
+```{r}
+regroup_dt <- fread(here::here("data/ca_energy_regroup.csv"))
+str(regroup_dt)
+#merged the two data sets to have a new "group" variable
+updated_all_data<- merge(all_data, regroup_dt, by.x= "source", by.y = "type")
+updated_all_data[,.(mean_vals = mean(output)), by= group]
+updated_all_data[,.(sd_vals = sd(output)), by= group]
+```
+
